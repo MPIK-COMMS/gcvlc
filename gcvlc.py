@@ -25,7 +25,7 @@ import myvlc
 class GCvlc_Player(Plugin):
     """This Plugin creates a gaze-controlled VLC-Player.
     """
-    def __init__(self, g_pool, video_file='/hdd/jonas/Gaze-Controlled_VLC_Player/test_input/test.mp4'):
+    def __init__(self, g_pool, video_file='/path/to/video.mp4'):
         super().__init__(g_pool)
         # order (0-1) determines if your plugin should run before other plugins or after
         self.order = .7
@@ -55,7 +55,7 @@ class GCvlc_Player(Plugin):
         self.menu.append(ui.Text_Input('video_file', self, setter=self.set_video_file, label='Video file'))
         # add a text field to specify the surface
         self.menu.append(ui.Text_Input('surface_name', self, setter=self.set_surface_name, label='Surface name'))
-        # add button to resolve the stream
+        # add button to start the VLC player
         self.menu.append(ui.Button('Start GCvlc Player', self.start_gcvlc_player))
         self.g_pool.sidebar.append(self.menu)
         
