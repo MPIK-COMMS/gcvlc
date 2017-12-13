@@ -124,6 +124,7 @@ class GCvlc_Player(Plugin):
         
     def start_gcvlc_player(self):
             self.vlc.open_file(self.video_file)
+            self.vlc.play()
             self.player_running = True
         
         
