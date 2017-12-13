@@ -7,14 +7,16 @@
 ----------------------------------------------------------------------------------~(*)
 '''
 
-#import cv2
-#import numpy as np
-#import os
+import numpy as np
 import sys
 from pyglui import ui
+from pyglui.cygl.utils import Named_Texture
 from glfw import *
-
+from gl_utils import *
+import OpenGL.GL as gl
+from platform import system
 from plugin import Plugin
+
 # logging
 import logging
 logger = logging.getLogger(__name__)
@@ -22,10 +24,46 @@ logger = logging.getLogger(__name__)
 import myvlc
 
 
+# window callbacks: resize window
+def on_resize(window, w, h):
+    active_window = glfwGetCurrentContext()
+    glfwMakeContextCurrent(window)
+    adjust_gl_view(w,h)
+    glfwMakeContextCurrent(active_window)
+    
+# generate marker matrix
+def generate_marker(marker):
+    n = 10
+    if marker == 'first':
+        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
+                        [0, 255, 255, 255, 255, 255, 0], [0, 255, 255, 255, 0, 255, 0], 
+                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        res = np.kron(mat, np.ones((n, n)))
+        return res.astype(np.uint8)
+    elif marker == 'second':
+        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
+                        [0, 255, 255, 255, 0, 255, 0], [0, 255, 255, 255, 0, 255, 0], 
+                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        res = np.kron(mat, np.ones((n, n)))
+        return res.astype(np.uint8)
+    elif marker == 'third':
+        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
+                        [0, 255, 255, 255, 255, 255, 0], [0, 255, 255, 0, 0, 255, 0], 
+                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        res = np.kron(mat, np.ones((n, n)))
+        return res.astype(np.uint8)
+    elif marker == 'fouth':
+        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
+                        [0, 255, 255, 255, 0, 255, 0], [0, 255, 255, 0, 0, 255, 0], 
+                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        res = np.kron(mat, np.ones((n, n)))
+        return res.astype(np.uint8)
+ 
+
 class GCvlc_Player(Plugin):
     """This Plugin creates a gaze-controlled VLC-Player.
     """
-    def __init__(self, g_pool, video_file='/path/to/video.mp4'):
+    def __init__(self, g_pool, video_file='/hdd/jonas/Gaze-Controlled_VLC_Player/test_input/test.mp4'):
         super().__init__(g_pool)
         # order (0-1) determines if your plugin should run before other plugins or after
         self.order = .7
@@ -42,7 +80,29 @@ class GCvlc_Player(Plugin):
         # surface that contains the vlc player
         self.surface_name = "Screen1"
         
+        # window to display marker
+        self._window = None
+        
+        # specify marker and marker scale
+        try:
+            self.marker1 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker1.npy')
+            self.marker1 = self.marker1.astype(np.uint8)
+        except:
+            logger.error("Unexpected error: {}".format(sys.exc_info()))
+        #self.marker2 = 'marker/marker2.png'
+        #self.marker3 = 'marker/marker3.png'
+        #self.marker4 = 'marker/marker4.png'
+        #self.marker_scale = 1.0
+        
         self.menu = None
+        
+        # UI Platform tweaks
+        if system() == 'Linux':
+            self.window_position_default = (0, 0)
+        elif system() == 'Windows':
+            self.window_position_default = (8, 31)
+        else:
+            self.window_position_default = (0, 0)
         
     def init_gui(self):
         # lets make a menu entry in the sidebar
@@ -59,10 +119,79 @@ class GCvlc_Player(Plugin):
         self.menu.append(ui.Button('Start GCvlc Player', self.start_gcvlc_player))
         self.g_pool.sidebar.append(self.menu)
         
+        # open new window for the VLC player
+        self.open_window('GCVLC_MarkerScreen')
+        
     def deinit_gui(self):
         if self.menu:
             self.g_pool.sidebar.remove(self.menu)
             self.menu = None
+            
+    def open_window(self, title='new_window'):
+        try:
+            width, height = 1280, 720
+            self._window = glfwCreateWindow(width, height, title, share=glfwGetCurrentContext())
+            glfwSetWindowPos(self._window, self.window_position_default[0], self.window_position_default[1])
+            
+            # bind vlc player to glfw window
+            if system() == 'Windows':
+                self.vlc.mediaplayer.set_hwnd(glfwGetWindowUserPointer(self._window))
+            else:
+                self.vlc.mediaplayer.set_xwindow(glfwGetWindowUserPointer(self._window))
+            
+            # Register callbacks
+            glfwSetFramebufferSizeCallback(self._window, on_resize)
+            on_resize(self._window, *glfwGetFramebufferSize(self._window))
+            
+            # gl_state settings
+            active_window = glfwGetCurrentContext()
+            glfwMakeContextCurrent(self._window)
+            basic_gl_setup()
+            # refresh speed settings
+            glfwSwapInterval(0)
+
+            glfwMakeContextCurrent(active_window)
+        except:
+            logger.error("Unexpected error: {}".format(sys.exc_info()))
+            
+    def close_window(self):
+        if self._window:
+            # enable mouse display
+            active_window = glfwGetCurrentContext()
+            glfwSetInputMode(self._window, GLFW_CURSOR, GLFW_CURSOR_NORMAL)
+            glfwDestroyWindow(self._window)
+            self._window = None
+            glfwMakeContextCurrent(active_window)
+            
+    def gl_display_in_window(self):
+        try:
+            active_window = glfwGetCurrentContext()
+            if glfwWindowShouldClose(self._window):
+                self.close_window()
+                return
+                
+            # make plugin window current context and clear the screen
+            glfwMakeContextCurrent(self._window)
+            clear_gl_screen()
+            
+            gl.glMatrixMode(gl.GL_PROJECTION)
+            gl.glLoadIdentity()
+            p_window_size = glfwGetFramebufferSize(self._window)
+            gl.glOrtho(0, p_window_size[0], p_window_size[1], 0, -1, 1)
+            # Switch back to Model View Matrix
+            gl.glMatrixMode(gl.GL_MODELVIEW)
+            gl.glLoadIdentity()
+            
+            # draw marker
+            m1 = Named_Texture()
+            m1.update_from_ndarray(self.marker1)
+            m1.draw(True, ((0., 0.), (0.5, 0.), (0.5, 0.5), (0., 0.5)), 1.0)
+            
+            # swap buffer
+            glfwSwapBuffers(self._window)
+            glfwMakeContextCurrent(active_window)
+        except:
+            logger.error("Unexpected error: {}".format(sys.exc_info()))
 
     def on_notify(self, notification):
         """Handels notifications
@@ -71,12 +200,11 @@ class GCvlc_Player(Plugin):
             No reactions to notifications implemented
         """
         pass
-
-    def close(self):
-        self.vlc.stop()
-        self.alive = False
     
     def recent_events(self, events):
+        if self._window:
+            self.gl_display_in_window()
+        
         if not self.player_running:
             return
             
@@ -109,22 +237,25 @@ class GCvlc_Player(Plugin):
         # and identically as a dict entry below:
         return {'video_file': self.video_file}
 
+    def close(self):
+        self.vlc.stop()
+        self.alive = False
+
     def cleanup(self):
         """ called when the plugin gets terminated.
         This happens either voluntarily or forced.
         if you have a GUI or glfw window destroy it here.
         """
+        self.close_window()
         self.deinit_gui()
 
     def set_video_file(self, value):
         self.video_file = value
         
-    def set_surface_name(self,  value):
+    def set_surface_name(self, value):
         self.surface_name = value
         
     def start_gcvlc_player(self):
-            self.vlc.open_file(self.video_file)
-            self.vlc.play()
-            self.player_running = True
-        
-        
+        self.vlc.open_file(self.video_file)
+        self.vlc.play()
+        self.player_running = True
