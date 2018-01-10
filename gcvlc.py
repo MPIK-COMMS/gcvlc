@@ -10,7 +10,7 @@
 import numpy as np
 import sys
 from pyglui import ui
-from pyglui.cygl.utils import Named_Texture
+#from pyglui.cygl.utils import Named_Texture
 from glfw import *
 from gl_utils import *
 import OpenGL.GL as gl
@@ -104,28 +104,31 @@ class GCvlc_Player(Plugin):
         else:
             self.window_position_default = (0, 0)
         
-    def init_gui(self):
-        # lets make a menu entry in the sidebar
-        self.menu = ui.Growing_Menu('GCvlc Player')
-        # add a button to close the plugin
-        self.menu.append(ui.Button('Close', self.close))
-        # add info text
-        self.menu.append(ui.Info_Text('This Plugin creates a VLC Player instance that can be controlled by the User via Gaze. Look at the video to play it. The Player will pause automatically, if the User looks away.'))
-        # add a text field to specify a video file
-        self.menu.append(ui.Text_Input('video_file', self, setter=self.set_video_file, label='Video file'))
-        # add a text field to specify the surface
-        self.menu.append(ui.Text_Input('surface_name', self, setter=self.set_surface_name, label='Surface name'))
-        # add button to start the VLC player
-        self.menu.append(ui.Button('Start GCvlc Player', self.start_gcvlc_player))
-        self.g_pool.sidebar.append(self.menu)
+    def init_ui(self):
+        try:
+            # lets make a menu entry in the sidebar
+            self.add_menu()
+            # add a label to the menu
+            self.menu.label = 'GCvlc Player'
+            # add a button to close the plugin
+            self.menu.append(ui.Button('Close', self.close))
+            # add info text
+            self.menu.append(ui.Info_Text('This Plugin creates a VLC Player instance that can be controlled by the User via Gaze. Look at the video to play it. The Player will pause automatically, if the User looks away.'))
+            # add a text field to specify a video file
+            self.menu.append(ui.Text_Input('video_file', self, setter=self.set_video_file, label='Video file:'))
+            # add a text field to specify the surface
+            self.menu.append(ui.Text_Input('surface_name', self, setter=self.set_surface_name, label='Surface name:'))
+            # add button to start the VLC player
+            self.menu.append(ui.Button('Start GCvlc Player', self.start_gcvlc_player))
+            #self.g_pool.sidebar.append(self.menu)
+            
+            # open new window for the VLC player
+            self.open_window('GCVLC_MarkerScreen')
+        except:
+            logger.error("Unexpected error: {}".format(sys.exc_info()))
         
-        # open new window for the VLC player
-        self.open_window('GCVLC_MarkerScreen')
-        
-    def deinit_gui(self):
-        if self.menu:
-            self.g_pool.sidebar.remove(self.menu)
-            self.menu = None
+    def deinit_ui(self):
+        self.remove_menu()
             
     def open_window(self, title='new_window'):
         try:
@@ -183,9 +186,15 @@ class GCvlc_Player(Plugin):
             gl.glLoadIdentity()
             
             # draw marker
-            m1 = Named_Texture()
-            m1.update_from_ndarray(self.marker1)
-            m1.draw(True, ((0., 0.), (0.5, 0.), (0.5, 0.5), (0., 0.5)), 1.0)
+            #m1 = Named_Texture()
+            #m1.update_from_ndarray(self.marker1)
+            #m1.draw(True, ((0., 0.), (0.5, 0.), (0.5, 0.5), (0., 0.5)), 1.0)
+            gl.glBegin(gl.GL_QUADS)
+            gl.glVertex2f(0.5, 0.5)
+            gl.glVertex2f(0.5, -0.5)
+            gl.glVertex2f(-0.5, -0.5)
+            gl.glVertex2f(-0.5, 0.5)
+            gl.glEnd()
             
             # swap buffer
             glfwSwapBuffers(self._window)
@@ -247,7 +256,7 @@ class GCvlc_Player(Plugin):
         if you have a GUI or glfw window destroy it here.
         """
         self.close_window()
-        self.deinit_gui()
+        self.deinit_ui()
 
     def set_video_file(self, value):
         self.video_file = value
