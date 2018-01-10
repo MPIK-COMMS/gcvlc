@@ -10,7 +10,7 @@
 import numpy as np
 import sys
 from pyglui import ui
-#from pyglui.cygl.utils import Named_Texture
+from pyglui.cygl.utils import Named_Texture
 from glfw import *
 from gl_utils import *
 import OpenGL.GL as gl
@@ -84,15 +84,15 @@ class GCvlc_Player(Plugin):
         self._window = None
         
         # specify marker and marker scale
-        try:
-            self.marker1 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker1.npy')
-            self.marker1 = self.marker1.astype(np.uint8)
-        except:
-            logger.error("Unexpected error: {}".format(sys.exc_info()))
-        #self.marker2 = 'marker/marker2.png'
-        #self.marker3 = 'marker/marker3.png'
-        #self.marker4 = 'marker/marker4.png'
-        #self.marker_scale = 1.0
+        self.marker1 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker1.npy')
+        self.marker1 = self.marker1.astype(np.uint8)
+        self.marker2 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker2.npy')
+        self.marker2 = self.marker2.astype(np.uint8)
+        self.marker3 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker3.npy')
+        self.marker3 = self.marker3.astype(np.uint8)
+        self.marker4 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker4.npy')
+        self.marker4 = self.marker4.astype(np.uint8)
+        self.m_size = 200.0
         
         self.menu = None
         
@@ -110,14 +110,16 @@ class GCvlc_Player(Plugin):
             self.add_menu()
             # add a label to the menu
             self.menu.label = 'GCvlc Player'
-            # add a button to close the plugin
-            self.menu.append(ui.Button('Close', self.close))
             # add info text
             self.menu.append(ui.Info_Text('This Plugin creates a VLC Player instance that can be controlled by the User via Gaze. Look at the video to play it. The Player will pause automatically, if the User looks away.'))
             # add a text field to specify a video file
             self.menu.append(ui.Text_Input('video_file', self, setter=self.set_video_file, label='Video file:'))
             # add a text field to specify the surface
             self.menu.append(ui.Text_Input('surface_name', self, setter=self.set_surface_name, label='Surface name:'))
+            # add slider to change marker size
+            self.menu.append(ui.Slider('m_size',  self, 
+                             label='Marker size [pixels]', 
+                             min=1,  max=500, step=1))
             # add button to start the VLC player
             self.menu.append(ui.Button('Start GCvlc Player', self.start_gcvlc_player))
             #self.g_pool.sidebar.append(self.menu)
@@ -128,6 +130,9 @@ class GCvlc_Player(Plugin):
             logger.error("Unexpected error: {}".format(sys.exc_info()))
         
     def deinit_ui(self):
+#        if self.menu:
+#            self.g_pool.sidebar.remove(self.menu)
+#            self.menu = None
         self.remove_menu()
             
     def open_window(self, title='new_window'):
@@ -185,16 +190,22 @@ class GCvlc_Player(Plugin):
             gl.glMatrixMode(gl.GL_MODELVIEW)
             gl.glLoadIdentity()
             
-            # draw marker
-            #m1 = Named_Texture()
-            #m1.update_from_ndarray(self.marker1)
-            #m1.draw(True, ((0., 0.), (0.5, 0.), (0.5, 0.5), (0., 0.5)), 1.0)
-            gl.glBegin(gl.GL_QUADS)
-            gl.glVertex2f(0.5, 0.5)
-            gl.glVertex2f(0.5, -0.5)
-            gl.glVertex2f(-0.5, -0.5)
-            gl.glVertex2f(-0.5, 0.5)
-            gl.glEnd()
+            # draw markers
+            m1 = Named_Texture()
+            m1.update_from_ndarray(self.marker1)
+            m1.draw(True, ((1.0, self.m_size), (self.m_size, self.m_size), (self.m_size, 1.0), (1.0, 1.0)), 1.0)
+            
+            m2 = Named_Texture()
+            m2.update_from_ndarray(self.marker2)
+            m2.draw(True, ((p_window_size[0]-self.m_size, self.m_size), (p_window_size[0]-1.0, self.m_size), (p_window_size[0]-1.0, 1.0), (p_window_size[0]-self.m_size, 1.0)), 1.0)
+            
+            m3 = Named_Texture()
+            m3.update_from_ndarray(self.marker3)
+            m3.draw(True, ((1.0, p_window_size[1]-1.0), (self.m_size, p_window_size[1]-1.0), (self.m_size, p_window_size[1]-self.m_size), (1.0, p_window_size[1]-self.m_size)), 1.0)
+            
+            m4 = Named_Texture()
+            m4.update_from_ndarray(self.marker4)
+            m4.draw(True, ((p_window_size[0]-self.m_size, p_window_size[1]-1.0), (p_window_size[0]-1.0, p_window_size[1]-1.0), (p_window_size[0]-1.0, p_window_size[1]-self.m_size), (p_window_size[0]-self.m_size, p_window_size[1]-self.m_size)), 1.0)
             
             # swap buffer
             glfwSwapBuffers(self._window)
@@ -246,15 +257,12 @@ class GCvlc_Player(Plugin):
         # and identically as a dict entry below:
         return {'video_file': self.video_file}
 
-    def close(self):
-        self.vlc.stop()
-        self.alive = False
-
     def cleanup(self):
         """ called when the plugin gets terminated.
         This happens either voluntarily or forced.
         if you have a GUI or glfw window destroy it here.
         """
+        self.vlc.stop()
         self.close_window()
         self.deinit_ui()
 
