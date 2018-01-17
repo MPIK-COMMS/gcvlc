@@ -32,30 +32,28 @@ def on_resize(window, w, h):
     glfwMakeContextCurrent(active_window)
     
 # generate marker matrix
+#       0 -> black pixel
+#     255 -> white pixel
 def generate_marker(marker):
     n = 10
     if marker == 'first':
-        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
-                        [0, 255, 255, 255, 255, 255, 0], [0, 255, 255, 255, 0, 255, 0], 
-                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        mat = np.array([[0, 0, 0, 0, 0], [0, 255, 255, 255, 0], [0, 0, 0, 0, 0], [0, 0, 0, 255, 0], 
+                        [0, 0, 0, 0, 0]], np.uint8)
         res = np.kron(mat, np.ones((n, n)))
         return res.astype(np.uint8)
     elif marker == 'second':
-        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
-                        [0, 255, 255, 255, 0, 255, 0], [0, 255, 255, 255, 0, 255, 0], 
-                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        mat = np.array([[0, 0, 0, 0, 0], [0, 255, 255, 255, 0], [0, 0, 0, 255, 0], [0, 0, 0, 255, 0], 
+                        [0, 0, 0, 0, 0]], np.uint8)
         res = np.kron(mat, np.ones((n, n)))
         return res.astype(np.uint8)
     elif marker == 'third':
-        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
-                        [0, 255, 255, 255, 255, 255, 0], [0, 255, 255, 0, 0, 255, 0], 
-                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+        mat = np.array([[0, 0, 0, 0, 0], [0, 255, 255, 255, 0], [0, 0, 0, 0, 0], [0, 0, 255, 255, 0], 
+                        [0, 0, 0, 0, 0]], np.uint8)
         res = np.kron(mat, np.ones((n, n)))
         return res.astype(np.uint8)
-    elif marker == 'fouth':
-        mat = np.array([[0, 0, 0, 0, 0, 0, 0], [0, 255, 255, 255, 255, 255, 0], [0, 255, 0, 0, 0, 255, 0], 
-                        [0, 255, 255, 255, 0, 255, 0], [0, 255, 255, 0, 0, 255, 0], 
-                        [0, 255, 255, 255, 255, 255, 0], [0, 0, 0, 0, 0, 0, 0]],  np.uint8)
+    elif marker == 'fourth':
+        mat = np.array([[0, 0, 0, 0, 0], [0, 255, 255, 255, 0], [0, 0, 0, 255, 0], [0, 0, 255, 255, 0], 
+                        [0, 0, 0, 0, 0]], np.uint8)
         res = np.kron(mat, np.ones((n, n)))
         return res.astype(np.uint8)
  
@@ -84,14 +82,10 @@ class GCvlc_Player(Plugin):
         self._window = None
         
         # specify marker and marker scale
-        self.marker1 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker1.npy')
-        self.marker1 = self.marker1.astype(np.uint8)
-        self.marker2 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker2.npy')
-        self.marker2 = self.marker2.astype(np.uint8)
-        self.marker3 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker3.npy')
-        self.marker3 = self.marker3.astype(np.uint8)
-        self.marker4 = np.load('/home/jonas/pupil_capture_settings/plugins/marker/marker4.npy')
-        self.marker4 = self.marker4.astype(np.uint8)
+        self.marker1 = generate_marker('first')
+        self.marker2 = generate_marker('second')
+        self.marker3 = generate_marker('third')
+        self.marker4 = generate_marker('fourth')
         self.m_size = 200.0
         
         self.menu = None
@@ -193,19 +187,19 @@ class GCvlc_Player(Plugin):
             # draw markers
             m1 = Named_Texture()
             m1.update_from_ndarray(self.marker1)
-            m1.draw(True, ((1.0, self.m_size), (self.m_size, self.m_size), (self.m_size, 1.0), (1.0, 1.0)), 1.0)
+            m1.draw(True, ((10.0, self.m_size), (self.m_size, self.m_size), (self.m_size, 10.0), (10.0, 10.0)), 10.0)
             
             m2 = Named_Texture()
             m2.update_from_ndarray(self.marker2)
-            m2.draw(True, ((p_window_size[0]-self.m_size, self.m_size), (p_window_size[0]-1.0, self.m_size), (p_window_size[0]-1.0, 1.0), (p_window_size[0]-self.m_size, 1.0)), 1.0)
+            m2.draw(True, ((p_window_size[0]-self.m_size, self.m_size), (p_window_size[0]-10.0, self.m_size), (p_window_size[0]-10.0, 10.0), (p_window_size[0]-self.m_size, 10.0)), 10.0)
             
             m3 = Named_Texture()
             m3.update_from_ndarray(self.marker3)
-            m3.draw(True, ((1.0, p_window_size[1]-1.0), (self.m_size, p_window_size[1]-1.0), (self.m_size, p_window_size[1]-self.m_size), (1.0, p_window_size[1]-self.m_size)), 1.0)
+            m3.draw(True, ((10.0, p_window_size[1]-10.0), (self.m_size, p_window_size[1]-10.0), (self.m_size, p_window_size[1]-self.m_size), (10.0, p_window_size[1]-self.m_size)), 10.0)
             
             m4 = Named_Texture()
             m4.update_from_ndarray(self.marker4)
-            m4.draw(True, ((p_window_size[0]-self.m_size, p_window_size[1]-1.0), (p_window_size[0]-1.0, p_window_size[1]-1.0), (p_window_size[0]-1.0, p_window_size[1]-self.m_size), (p_window_size[0]-self.m_size, p_window_size[1]-self.m_size)), 1.0)
+            m4.draw(True, ((p_window_size[0]-self.m_size, p_window_size[1]-10.0), (p_window_size[0]-10.0, p_window_size[1]-10.0), (p_window_size[0]-10.0, p_window_size[1]-self.m_size), (p_window_size[0]-self.m_size, p_window_size[1]-self.m_size)), 10.0)
             
             # swap buffer
             glfwSwapBuffers(self._window)
