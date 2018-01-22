@@ -24,17 +24,17 @@ logger = logging.getLogger(__name__)
 import myvlc
 
 
-# window callbacks: resize window
 def on_resize(window, w, h):
+    # window callbacks: resize window
     active_window = glfwGetCurrentContext()
     glfwMakeContextCurrent(window)
     adjust_gl_view(w,h)
     glfwMakeContextCurrent(active_window)
     
-# generate marker matrix
-#       0 -> black pixel
-#     255 -> white pixel
 def generate_marker(marker):
+    # generate marker matrix by upscaling a black-and-white pixel matrix using the Kronecker tensor product
+    #       0 -> black pixel
+    #     255 -> white pixel
     n = 10
     if marker == 'first':
         mat = np.array([[0, 0, 0, 0, 0], [0, 255, 255, 255, 0], [0, 0, 0, 0, 0], [0, 0, 0, 255, 0], 
@@ -64,9 +64,10 @@ class GCvlc_Player(Plugin):
     def __init__(self, g_pool, video_file='/hdd/jonas/Gaze-Controlled_VLC_Player/test_input/test.mp4'):
         super().__init__(g_pool)
         # order (0-1) determines if your plugin should run before other plugins or after
+        # gcvlc player uses high order since it relies on calculated gaze points
         self.order = .7
 
-        # name of the LSL stream and output file
+        # name of the video file (player is tested with mp4 files!)
         self.video_file = video_file
         
         # create vlc player object
@@ -75,13 +76,13 @@ class GCvlc_Player(Plugin):
         # variable to determine whether the player is running
         self.player_running = False
         
-        # surface that contains the vlc player
+        # name of the marker surface
         self.surface_name = "Screen1"
         
         # window to display marker
         self._window = None
         
-        # specify marker and marker scale
+        # specify marker and marker size
         self.marker1 = generate_marker('first')
         self.marker2 = generate_marker('second')
         self.marker3 = generate_marker('third')
@@ -105,7 +106,7 @@ class GCvlc_Player(Plugin):
             # add a label to the menu
             self.menu.label = 'GCvlc Player'
             # add info text
-            self.menu.append(ui.Info_Text('This Plugin creates a VLC Player instance that can be controlled by the User via Gaze. Look at the video to play it. The Player will pause automatically, if the User looks away.'))
+            self.menu.append(ui.Info_Text('This Plugin creates a VLC Player instance that can be controlled by the User via Gaze. Look at the video to play it. The Player will pause automatically, if the User looks away. The four-marker surface spawned by this plugin has to be tracked using Pupil Labs\' surface tracker and the chosen name of this surface has to be typed into the surface name field.'))
             # add a text field to specify a video file
             self.menu.append(ui.Text_Input('video_file', self, setter=self.set_video_file, label='Video file:'))
             # add a text field to specify the surface
@@ -131,15 +132,17 @@ class GCvlc_Player(Plugin):
             
     def open_window(self, title='new_window'):
         try:
+            # specify initial size of the window, create a glfw window, and display it at the default position
             width, height = 1280, 720
             self._window = glfwCreateWindow(width, height, title, share=glfwGetCurrentContext())
             glfwSetWindowPos(self._window, self.window_position_default[0], self.window_position_default[1])
             
-            # bind vlc player to glfw window
-            if system() == 'Windows':
-                self.vlc.mediaplayer.set_hwnd(glfwGetWindowUserPointer(self._window))
-            else:
-                self.vlc.mediaplayer.set_xwindow(glfwGetWindowUserPointer(self._window))
+            # TODO: Bind vlc player to glfw window. Currently this is not working but it would be convenient to automatically
+            #       assign the vlc output to our glfw window and adjust the size of the video regarding the marker size.
+            #if system() == 'Windows':
+            #    self.vlc.mediaplayer.set_hwnd(glfwGetWindowUserPointer(self._window))
+            #else:
+            #    self.vlc.mediaplayer.set_xwindow(glfwGetWindowUserPointer(self._window))
             
             # Register callbacks
             glfwSetFramebufferSizeCallback(self._window, on_resize)
@@ -152,13 +155,14 @@ class GCvlc_Player(Plugin):
             # refresh speed settings
             glfwSwapInterval(0)
 
+            # change back to the main window
             glfwMakeContextCurrent(active_window)
         except:
             logger.error("Unexpected error: {}".format(sys.exc_info()))
             
     def close_window(self):
         if self._window:
-            # enable mouse display
+            # enable mouse display and close the glfw window spawned by this plugin
             active_window = glfwGetCurrentContext()
             glfwSetInputMode(self._window, GLFW_CURSOR, GLFW_CURSOR_NORMAL)
             glfwDestroyWindow(self._window)
@@ -184,7 +188,8 @@ class GCvlc_Player(Plugin):
             gl.glMatrixMode(gl.GL_MODELVIEW)
             gl.glLoadIdentity()
             
-            # draw markers
+            # draw markers using the previously generated ndarrays and Named_Texture objects 
+            # (see https://github.com/pupil-labs/pyglui/blob/master/pyglui/cygl/utils.pyx for details)
             m1 = Named_Texture()
             m1.update_from_ndarray(self.marker1)
             m1.draw(True, ((10.0, self.m_size), (self.m_size, self.m_size), (self.m_size, 10.0), (10.0, 10.0)), 10.0)
@@ -216,13 +221,16 @@ class GCvlc_Player(Plugin):
         pass
     
     def recent_events(self, events):
+        # call update function for the glfw window if this window is displayed
         if self._window:
             self.gl_display_in_window()
         
+        # if the player is not started yet, do nothing
         if not self.player_running:
             return
             
         try:
+            # check all tracked surfaces and pause the player if no surface is currently tracked
             surfaces = events.get('surfaces')
             if not surfaces:
                 self.vlc.pause()
@@ -231,7 +239,7 @@ class GCvlc_Player(Plugin):
             # iterate over all detected surfaces
             aux_not_srf = True
             for s in surfaces:
-                # check whether the surface contains the vlc player
+                # check whether the plugin's surface is tracked
                 if s['name'] == self.surface_name:
                     aux_not_srf = False
                     # play the video if the gaze lies on the surface, pause otherwise
@@ -261,12 +269,15 @@ class GCvlc_Player(Plugin):
         self.deinit_ui()
 
     def set_video_file(self, value):
+        # this auxiliary function processes user input of the video file field
         self.video_file = value
         
     def set_surface_name(self, value):
+        # this auxiliary function processes user input of the surface name field
         self.surface_name = value
         
     def start_gcvlc_player(self):
+        # load the specified video file into the vlc player and start the video
         self.vlc.open_file(self.video_file)
         self.vlc.play()
         self.player_running = True
